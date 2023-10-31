@@ -18,7 +18,6 @@ void UInteractiveComponent::TrackForInteractor(AActor* Interactor)
 {
 	if (Interactor == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Tried to interact with a null object"));
 		return;
 	}
 
@@ -27,13 +26,13 @@ void UInteractiveComponent::TrackForInteractor(AActor* Interactor)
 		return;
 	}
 
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwner()->HasAuthority())
 	{
-		ServerInteract(Interactor);
+		Cast<IInteractiveInterface>(Interactor)->OnInteract();
 	}
 	else
 	{
-		Cast<IInteractiveInterface>(Interactor)->Execute_BP_OnInteract(Interactor);
+		//ServerInteract(Interactor);
 	}
 }
 

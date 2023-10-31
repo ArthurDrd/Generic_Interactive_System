@@ -20,6 +20,6 @@ class GENERIC_INTERACTIVE_SYSTEM_API IInteractiveInterface
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintImplementableEvent, Category=Interaction)
-	void BP_OnInteract();
+	UFUNCTION()
+	virtual void OnInteract();
 };
