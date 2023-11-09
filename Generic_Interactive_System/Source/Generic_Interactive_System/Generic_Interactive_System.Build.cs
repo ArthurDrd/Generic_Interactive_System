@@ -25,7 +25,7 @@ public class Generic_Interactive_System : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
+				"Core","GameplayTags"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -37,8 +37,7 @@ public class Generic_Interactive_System : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
-				"GameplayTags",
+				"SlateCore"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

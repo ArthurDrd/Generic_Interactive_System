@@ -2,7 +2,10 @@
 
 #include "Components/InteractiveComponent.h"
 
+#include "GameFramework/Character.h"
 #include "Interfaces/InteractiveInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 UInteractiveComponent::UInteractiveComponent()
 {
@@ -12,36 +15,92 @@ UInteractiveComponent::UInteractiveComponent()
 void UInteractiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
-}
 
-void UInteractiveComponent::TrackForInteractor(AActor* Interactor)
-{
-	if (Interactor == nullptr)
-	{
-		return;
-	}
+	Owner = Cast<ACharacter>(GetOwner());
+	checkf(Owner, TEXT("Owner is not an ACharacter"));
 
-	if (!Interactor->Implements<UInteractiveInterface>())
+	if (Owner->HasAuthority())
 	{
-		return;
-	}
-
-	if (GetOwner()->HasAuthority())
-	{
-		Cast<IInteractiveInterface>(Interactor)->OnInteract();
-	}
-	else
-	{
-		//ServerInteract(Interactor);
+		FTimerDelegate ResearchTimerDelegate;
+		ResearchTimerDelegate.BindUObject(this, &UInteractiveComponent::GetAllInteractible);
+		GetWorld()->GetTimerManager().SetTimer(ResearchTimerHandle, ResearchTimerDelegate, 0.1f, true);
 	}
 }
 
-void UInteractiveComponent::ServerInteract_Implementation(AActor* Interactor)
+void UInteractiveComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	TrackForInteractor(Interactor);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION_NOTIFY(UInteractiveComponent, BestInteractible, COND_OwnerOnly, REPNOTIFY_Always);
 }
 
-bool UInteractiveComponent::ServerInteract_Validate(AActor* Interactor)
+void UInteractiveComponent::PrimaryInteract()
 {
-	return Interactor != nullptr && Interactor->Implements<UInteractiveInterface>();
+	ServerPrimaryInteract();
+}
+
+void UInteractiveComponent::ServerPrimaryInteract_Implementation()
+{
+	if (BestInteractible != nullptr && BestInteractible->Implements<UInteractiveInterface>())
+	{
+		Cast<IInteractiveInterface>(BestInteractible)->OnPrimaryInteract(Owner);
+	}
+}
+
+bool UInteractiveComponent::ServerPrimaryInteract_Validate()
+{
+	if (ensureAlways(Owner) && Owner->HasAuthority())
+	{
+		return true;
+	}
+	return false;
+}
+
+void UInteractiveComponent::SecondaryInteract()
+{
+	ServerSecondaryInteract();
+}
+
+void UInteractiveComponent::ServerSecondaryInteract_Implementation()
+{
+	if (BestInteractible != nullptr && BestInteractible->Implements<UInteractiveInterface>())
+	{
+		Cast<IInteractiveInterface>(BestInteractible)->OnSecondaryInteract(Owner);
+	}
+}
+
+bool UInteractiveComponent::ServerSecondaryInteract_Validate()
+{
+	if (ensureAlways(Owner) && Owner->HasAuthority())
+	{
+		return true;
+	}
+	return false;
+}
+
+void UInteractiveComponent::GetAllInteractible()
+{
+	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UInteractiveInterface::StaticClass(), ListOfInteractibles);
+	if (ListOfInteractibles.Num() > 0 )
+	{
+		AActor* NewBestInteractible = ListOfInteractibles[0];
+		for (AActor* Interactible : ListOfInteractibles)
+		{
+			if (Interactible->GetDistanceTo(Owner) < NewBestInteractible->GetDistanceTo(Owner))
+			{
+				NewBestInteractible = Interactible;
+			}
+		}
+		TrySetNewBestInteractible(NewBestInteractible);
+	}
+}
+
+void UInteractiveComponent::TrySetNewBestInteractible(AActor* RelevantActor)
+{
+	if (BestInteractible != RelevantActor)
+	{
+		if (RelevantActor->GetDistanceTo(Owner) < BestInteractible->GetDistanceTo(Owner))
+		{
+			BestInteractible = RelevantActor;
+		}
+	}
 }
